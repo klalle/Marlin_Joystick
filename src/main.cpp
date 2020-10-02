@@ -196,65 +196,83 @@ void loop() {
     while(isPressed(joystickBtn)){delay(50);}
   }
 
-  //Keep moving Z until btn is released, 
-  //decrease delay for moves (movetime+paus) until calculated movetime=delay => speed up
+  //Keep moving in Z until jystick is released, start with long delay to enable single distance moove
+  //After that accelerate upp to speed.
   bool keepMoving=true; 
-  int minDelayBetweenMoves=minTimeToReleaseBtnDelay;
   bool first = true;
+
+  int keepMovingFeedrate=Z_Feedrate;
+  String keepMovingDistance=Z_distance;
+  int keepMovingMoveTime=Z_moveTime;//1.0/(Z_Feedrate/60)*1000+10;
+
   while(keepMoving){
     Z_command =" Z0";
     bool up_btn = isPressed(PIN_BUTTON_A);
     bool down_btn = isPressed(PIN_BUTTON_C);
       
     if(up_btn)
-      Z_command = String(" Z" + Z_distance);
+      Z_command = String(" Z" + keepMovingDistance);
       
     if(down_btn)
-      Z_command = String(" Z-" + Z_distance);
+      Z_command = String(" Z-" + keepMovingDistance);
 
     if(Z_command !=" Z0"){
-      Serial.println("G91");
+      Serial.println("G91"); //Set relative positioning
       Serial.print("G1");
       Serial.print(Z_command);
       Serial.print(" F");
-      Serial.println(Z_Feedrate);
-      Serial.println("G90");
-      if(Z_moveTime<minDelayBetweenMoves){
-        delay(minDelayBetweenMoves);
-        minDelayBetweenMoves -=25; //accelerate
+      Serial.println(keepMovingFeedrate);
+      Serial.println("G90"); //Reset Absolute positioning (used in gcode)
+
+      if(first){
+        first = false;
+        if(minTimeToReleaseBtnDelay<Z_moveTime){
+          delay(Z_moveTime);
+          keepMovingMoveTime=0.5/(keepMovingFeedrate/60)*1000;
+        }
+        else{
+          delay(minTimeToReleaseBtnDelay);
+          keepMovingFeedrate = 125;
+        }
+        keepMovingDistance="0.5";
       }
       else
-        delay(Z_moveTime);
+        delay(keepMovingMoveTime);
     }
     else
       keepMoving=false;
-    
-    if(first){
-      first = false;
-      minDelayBetweenMoves=150; //only have one long wait before acceleration...
-    }
 
+    if(keepMovingFeedrate+25<=Z_Feedrate){ //accelearte up to speed...
+      keepMovingFeedrate+=25;
+      keepMovingMoveTime=0.5/(keepMovingFeedrate/60)*1000;
+    }
   }
 
-  //Keep moving in XY until jystick is released, 
-  //decrease delay for moves (movetime+paus) until calculated movetime=delay => speed up
+  //Keep moving in XY until jystick is released, start with long delay to enable single distance mooves
+  //After that accelerate upp to speed.
   keepMoving=true; 
-  minDelayBetweenMoves=minTimeToReleaseBtnDelay;
+  first = true;
+
+  keepMovingFeedrate=XY_Feedrate;
+  keepMovingDistance=distance;
+  keepMovingMoveTime=XY_moveTime;
+  keepMoving=true; 
+
   first = true;
   while(keepMoving){
     X_command =" X0";
     Y_command =" Y0";
     x = analogRead(x_Pin); 
     if (x < zeroState_x-treshold_x)
-      X_command = String(" X-" + distance);
+      X_command = String(" X-" + keepMovingDistance);
     else if (x > zeroState_x+treshold_x)
-      X_command = String(" X" + distance);
+      X_command = String(" X" + keepMovingDistance);
 
     y = analogRead(y_Pin);
     if (y < zeroState_y-treshold_y)
-      Y_command = String(" Y-" + distance);
+      Y_command = String(" Y-" + keepMovingDistance);
     else if (y > zeroState_y+treshold_y)
-      Y_command = String(" Y" + distance);
+      Y_command = String(" Y" + keepMovingDistance);
 
     if(X_command !=" X0" || Y_command !=" Y0"){
       Serial.println("G91");
@@ -262,22 +280,30 @@ void loop() {
       Serial.print(X_command);
       Serial.print(Y_command);
       Serial.print(" F");
-      Serial.println(XY_Feedrate);
+      Serial.println(keepMovingFeedrate);
       Serial.println("G90");
-      
-      if(XY_moveTime<minDelayBetweenMoves){
-        delay(minDelayBetweenMoves);
-        minDelayBetweenMoves-=50;
+
+      if(first){
+        first = false;
+        if(minTimeToReleaseBtnDelay<XY_moveTime){
+          delay(XY_moveTime);
+          keepMovingMoveTime=2.0/(keepMovingFeedrate/60)*1000;
+        }
+        else{
+          delay(minTimeToReleaseBtnDelay);
+          keepMovingFeedrate = 400;
+        }
+        keepMovingDistance="2";
       }
       else
-        delay(XY_moveTime);
+        delay(keepMovingMoveTime);
     }
     else
       keepMoving=false;
 
-    if(first){
-      first = false;
-      minDelayBetweenMoves=150;//only have one long wait before acceleration...
+    if(keepMovingFeedrate+100<=XY_Feedrate){ //acc up to speed...
+      keepMovingFeedrate+=100;
+      keepMovingMoveTime=2.0/(keepMovingFeedrate/60)*1000;
     }
   }
 }
