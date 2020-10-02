@@ -242,7 +242,7 @@ void loop() {
     else
       keepMoving=false;
 
-    if(keepMovingFeedrate+25<=Z_Feedrate){ //accelearte up to speed...
+    if(keepMovingFeedrate+25<=Z_Feedrate){ //accelerate up to speed...
       keepMovingFeedrate+=25;
       keepMovingMoveTime=0.5/(keepMovingFeedrate/60)*1000;
     }
@@ -301,7 +301,7 @@ void loop() {
     else
       keepMoving=false;
 
-    if(keepMovingFeedrate+100<=XY_Feedrate){ //acc up to speed...
+    if(keepMovingFeedrate+100<=XY_Feedrate){ //accelerate up to speed...
       keepMovingFeedrate+=100;
       keepMovingMoveTime=2.0/(keepMovingFeedrate/60)*1000;
     }
