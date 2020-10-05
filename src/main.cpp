@@ -31,43 +31,44 @@ const int speedToggleBtn = PIN_BUTTON_F;
 boolean hxy = false; //define buttons_presed variables
 boolean hz = false;
 
-const int ledPin_01 = 9; // Analog output pin that the LED is attached to
-const int ledPin_1 = 10;
-const int ledPin_10 = 11;
-const int ledPin_100 = 12;
-const int btnActivated = 13; //side button for activate unit or not (default = high=>no btn)
+const int ledPin_01 = 10; // Analog output pin that the LED is attached to
+const int ledPin_1 = 11;
+const int ledPin_10 = 12;
+const int ledPin_100 = 13;
+const int btnActivated = 9; //side button for activate unit or not (default = high=>no btn)
 
 int x=0; //initialize variables
 int y=0;
 int t=0;
-String X_command = "";
-String Y_command = "";
-String Z_command = "";
-String distance = "1.0 ";
-String Z_distance = "1.0 ";
+char X_command[10] = "\0";
+char Y_command[10]  = "\0";
+char Z_command[10]  = "\0";
+double XY_distance = 1.0;
+double Z_distance = 1.0;
 
-int XY_Feedrate = 2000;
+int XY_Feedrate = 4000;
 int Z_Feedrate = 300;
 
 int speedToggle=1; // set 0.1mm,1, 10, 100
 bool activationBtnStatus = false;
 
-//String inputString = "";         // a string to hold incoming data
-//boolean stringComplete = false;  // whether the string is complete
+unsigned long timeoutWaitingForOK = 250;
+unsigned long longPressLimit = 1500;
 
 bool joystickIsActivated=false;
 bool updateSpeedAndLabel=true;
 
-int minTimeToReleaseBtnDelay = 500;
-int XY_moveTime=0;
-int Z_moveTime=0;
+unsigned long minTimeToReleaseBtnDelay = 300;
 
 bool firstXMoveLeft=true;
 bool firstXMoveRight=true;
 
+bool waitForOkResponse();
 bool isPressed(int pin);
 bool isLongPressed(int pin);
 int getAverage(int pin);
+void setLedPin(int pin);
+
 
 void setup() {
 
@@ -80,8 +81,15 @@ void setup() {
   pinMode(PIN_BUTTON_J, INPUT_PULLUP);
   pinMode(btnActivated, INPUT_PULLUP);
 
+  pinMode(ledPin_01, OUTPUT);
+  pinMode(ledPin_1, OUTPUT);
+  pinMode(ledPin_10, OUTPUT);
+  pinMode(ledPin_100, OUTPUT);
+
+  setLedPin(-1); //No led on
+
   Serial.begin(baud_rate);
-  
+
   delay(3000);
   zeroState_x = getAverage(x_Pin);
   zeroState_y = getAverage(y_Pin);
@@ -91,9 +99,11 @@ void setup() {
 
 
 void loop() {
+
   if(activationBtnStatus && !isPressed(btnActivated)){ //just turned btn off
     activationBtnStatus=false;
     Serial.println("M117 Long-click joystick!");
+      setLedPin(-1);
   }
   else if(!activationBtnStatus && isPressed(btnActivated)) //just turned btn on
   {
@@ -104,8 +114,10 @@ void loop() {
   }
   else if(!activationBtnStatus && isLongPressed(joystickBtn)){ //btn=off, but using joystick to toggle on/off
     joystickIsActivated=!joystickIsActivated;
-    if(!joystickIsActivated)
+    if(!joystickIsActivated){
       Serial.println("M117 Long-click joystick!");
+      setLedPin(-1);
+    }
     else{
       updateSpeedAndLabel=true;
       speedToggle=1;
@@ -153,39 +165,30 @@ void loop() {
 
 
   if(updateSpeedAndLabel){
+
     updateSpeedAndLabel=false;
+    setLedPin(speedToggle);
+
     switch(speedToggle) {
       case 0:
-        distance="0.1"; //set movement to 0.1mm
-        XY_moveTime=0.1/(XY_Feedrate/60)*1000+10; //+10 => Marlin get clogged with commands...
-        Z_moveTime =0.1/(Z_Feedrate/60)*1000+10;
-        //TODO set led-pins
+        XY_distance=0.1; 
         break;
       case 1: 
-        distance="1"; //set movement to 1mm
-        XY_moveTime=1.0/(XY_Feedrate/60)*1000+10;
-        Z_moveTime =1.0/(Z_Feedrate/60)*1000+10;
-        //TODO set led-pins
+        XY_distance=1;
         break;  
       case 2: 
-        distance="10"; //set movement to 10mm
-        XY_moveTime=10.0/(XY_Feedrate/60)*1000;
-        Z_moveTime =10.0/(Z_Feedrate/60)*1000;
-        //TODO set led-pins
+        XY_distance=10; 
         break;  
       case 3: 
-          Z_distance = "20";// maximum Z-axis movement is 20mm not 100. We don't want to shoot it out of the MPCNC!
-          Z_moveTime = 20.0/(Z_Feedrate/60)*1000;
-          distance="100"; //set movement to 50
-          XY_moveTime=100.0/(XY_Feedrate/60.0)*1000; //100mm, / (F2000[mm/min]/60[s/min])*1000[ms/s]
-          //TODO set led-pins
+          XY_distance=100;
+          Z_distance = 20;// maximum Z-axis movement is 20mm not 100. We don't want to shoot it out of the MPCNC!
         break;  
     }
     if(speedToggle<3)
-      Z_distance=distance;
+      Z_distance=XY_distance;
 
     Serial.print("M117 Joystick XY:");
-    Serial.print(distance);
+    Serial.print(XY_distance);
     Serial.print(" Z:");
     Serial.println(Z_distance);
    
@@ -196,115 +199,205 @@ void loop() {
     while(isPressed(joystickBtn)){delay(50);}
   }
 
-  //Keep moving in Z until jystick is released, start with long delay to enable single distance moove
+  char strBuff_distance[10];
+
+  //Keep moving in Z until jystick is released, start with long delay to enable single XY_distance moove
   //After that accelerate upp to speed.
   bool keepMoving=true; 
   bool first = true;
+  bool hasMoved=false;
 
-  int keepMovingFeedrate=Z_Feedrate;
-  String keepMovingDistance=Z_distance;
-  int keepMovingMoveTime=Z_moveTime;//1.0/(Z_Feedrate/60)*1000+10;
+  unsigned long Z_moveTime = Z_distance/(Z_Feedrate/60)*1000;
+
+  double keepMoving_distance=Z_distance;
+  int decimals = 0;
+  if(XY_distance<1)
+    decimals=1;
+  dtostrf(keepMoving_distance, 1, decimals, strBuff_distance);//first 1 is minimum length, second nr of decimals
+
+  unsigned long travelingDuration=Z_moveTime;
+  
 
   while(keepMoving){
-    Z_command =" Z0";
     bool up_btn = isPressed(PIN_BUTTON_A);
     bool down_btn = isPressed(PIN_BUTTON_C);
-      
-    if(up_btn)
-      Z_command = String(" Z" + keepMovingDistance);
-      
-    if(down_btn)
-      Z_command = String(" Z-" + keepMovingDistance);
 
-    if(Z_command !=" Z0"){
-      Serial.println("G91"); //Set relative positioning
-      Serial.print("G1");
-      Serial.print(Z_command);
-      Serial.print(" F");
-      Serial.println(keepMovingFeedrate);
-      Serial.println("G90"); //Reset Absolute positioning (used in gcode)
+    bool zMoved=true;
+    if(up_btn)
+      strcpy(Z_command, " Z");
+    else if(down_btn)
+      strcpy(Z_command, " Z-");
+    else
+      zMoved=false;
+
+    if(zMoved){
+      strcat(Z_command, strBuff_distance);
 
       if(first){
-        first = false;
-        if(minTimeToReleaseBtnDelay<Z_moveTime){
-          delay(Z_moveTime);
-          keepMovingMoveTime=0.5/(keepMovingFeedrate/60)*1000;
+        Serial.println("G91"); //Set relative positioning
+        hasMoved=true;
+      }
+
+      if(waitForOkResponse()){
+        Serial.print("G1");
+        Serial.print(Z_command);
+        Serial.print(" F");
+        Serial.println(Z_Feedrate);
+        if(first){
+          first = false;
+          if(minTimeToReleaseBtnDelay<Z_moveTime)
+            delay(Z_moveTime);
+          else
+            delay(minTimeToReleaseBtnDelay);
+          
+          keepMoving_distance=1;
+          dtostrf(keepMoving_distance, 1, 0, strBuff_distance);
+          travelingDuration=keepMoving_distance/(Z_Feedrate/60)*1000;
         }
-        else{
-          delay(minTimeToReleaseBtnDelay);
-          keepMovingFeedrate = 125;
-        }
-        keepMovingDistance="0.5";
+        else
+          delay(travelingDuration);
       }
       else
-        delay(keepMovingMoveTime);
+        first = false; //if no contact - do not spam with G91...
     }
     else
       keepMoving=false;
-
-    if(keepMovingFeedrate+25<=Z_Feedrate){ //accelerate up to speed...
-      keepMovingFeedrate+=25;
-      keepMovingMoveTime=0.5/(keepMovingFeedrate/60)*1000;
-    }
   }
 
-  //Keep moving in XY until jystick is released, start with long delay to enable single distance mooves
+  //Keep moving in XY until jystick is released, start with long delay to enable single XY_distance mooves
   //After that accelerate upp to speed.
   keepMoving=true; 
   first = true;
 
-  keepMovingFeedrate=XY_Feedrate;
-  keepMovingDistance=distance;
-  keepMovingMoveTime=XY_moveTime;
+  keepMoving_distance=XY_distance;
+
+  decimals=0;
+  if(XY_distance<1)
+    decimals=1;
+  dtostrf(keepMoving_distance, 1, decimals, strBuff_distance);//first 1 is minimum length, second nr of decimals
+
+  travelingDuration=0; //Sets in loop...
   keepMoving=true; 
 
   first = true;
+  bool XYMove=false;
+
+
   while(keepMoving){
-    X_command =" X0";
-    Y_command =" Y0";
+    //X
+    bool xMoved=true;
     x = analogRead(x_Pin); 
     if (x < zeroState_x-treshold_x)
-      X_command = String(" X-" + keepMovingDistance);
+      strcpy(X_command," X-");
     else if (x > zeroState_x+treshold_x)
-      X_command = String(" X" + keepMovingDistance);
+      strcpy(X_command," X");
+    else
+      xMoved=false;
 
+    if(xMoved)
+      strcat(X_command, strBuff_distance);
+
+    //Y
+    bool yMoved=true;
     y = analogRead(y_Pin);
     if (y < zeroState_y-treshold_y)
-      Y_command = String(" Y-" + keepMovingDistance);
+      strcpy(Y_command," Y-");
     else if (y > zeroState_y+treshold_y)
-      Y_command = String(" Y" + keepMovingDistance);
+      strcpy(Y_command," Y");
+    else
+      yMoved=false;
 
-    if(X_command !=" X0" || Y_command !=" Y0"){
-      Serial.println("G91");
-      Serial.print("G1");
-      Serial.print(X_command);
-      Serial.print(Y_command);
-      Serial.print(" F");
-      Serial.println(keepMovingFeedrate);
-      Serial.println("G90");
+    if(yMoved)
+      strcat(Y_command, strBuff_distance);
 
-      if(first){
-        first = false;
-        if(minTimeToReleaseBtnDelay<XY_moveTime){
-          delay(XY_moveTime);
-          keepMovingMoveTime=2.0/(keepMovingFeedrate/60)*1000;
+    //Move!
+    if(xMoved || yMoved){
+
+      if(first && !hasMoved){
+        Serial.println("G91"); //Set relative positioning
+        hasMoved=true;
+      }
+
+      if(XYMove != (xMoved && yMoved) || first){
+        XYMove = (xMoved && yMoved);
+        if(XYMove) //Diagonal move = longer XY_distance... X=5, Y=5 => H=sqrt(2)*X (Pythagoras) H=sqrt(2*X²)=sqrt(2)*X
+          travelingDuration=(1.41421*keepMoving_distance)/(XY_Feedrate/60)*1000; 
+        else
+          travelingDuration=keepMoving_distance/(XY_Feedrate/60)*1000; 
+      }
+
+      if(waitForOkResponse()){
+        Serial.print("G1");
+        if(xMoved)
+          Serial.print(X_command);
+        if(yMoved)
+          Serial.print(Y_command);
+        Serial.print(" F");
+        Serial.println(XY_Feedrate);
+
+        if(first){
+          first = false;
+          if(minTimeToReleaseBtnDelay<travelingDuration)
+            delay(travelingDuration);
+          else
+            delay(minTimeToReleaseBtnDelay);
+
+          keepMoving_distance=5;
+          dtostrf(keepMoving_distance, 1, 0, strBuff_distance);
+          if(XYMove) //Diagonal move = longer XY_distance
+            travelingDuration=(1.41421*keepMoving_distance)/(XY_Feedrate/60)*1000; 
+          else
+            travelingDuration=keepMoving_distance/(XY_Feedrate/60)*1000; 
         }
-        else{
-          delay(minTimeToReleaseBtnDelay);
-          keepMovingFeedrate = 400;
-        }
-        keepMovingDistance="2";
+        else
+          delay(travelingDuration);
       }
       else
-        delay(keepMovingMoveTime);
+        first = false;
     }
     else
       keepMoving=false;
+  }
+  if(hasMoved){
+    Serial.println("G90"); //Set back to absolute positioning (gcode from sd)
+  }
+}
 
-    if(keepMovingFeedrate+100<=XY_Feedrate){ //accelerate up to speed...
-      keepMovingFeedrate+=100;
-      keepMovingMoveTime=2.0/(keepMovingFeedrate/60)*1000;
-    }
+bool waitForOkResponse(){
+  unsigned long startedWaiting = millis();
+  String receivedStr = "";
+  bool OkFound=false;
+  while (Serial.available() && millis() - startedWaiting <= minTimeToReleaseBtnDelay) {
+    char inChar = (char)Serial.read();
+    receivedStr += inChar;
+    if(receivedStr.indexOf("ok")>=0)
+      OkFound=true;
+  }
+  return OkFound;
+}
+
+void setLedPin(int pin){
+  digitalWrite(ledPin_01, HIGH); //turn all off
+  digitalWrite(ledPin_1, HIGH);
+  digitalWrite(ledPin_10, HIGH);
+  digitalWrite(ledPin_100, HIGH);
+  switch (pin) //Turn on one or none
+  {
+    case 0:
+      digitalWrite(ledPin_01, LOW);
+      break;
+    case 1:
+      digitalWrite(ledPin_1, LOW);
+      break;
+    case 2:
+      digitalWrite(ledPin_10, LOW);
+      break;
+    case 3:
+      digitalWrite(ledPin_100, LOW);
+      break;
+    default:
+      // eg -1 leaves all leds off
+      break;
   }
 }
 
@@ -315,7 +408,7 @@ bool isPressed(int pin){
 bool isLongPressed(int pin){
   int c=0;
     unsigned long startedWaiting = millis();
-    while(digitalRead(pin)==LOW && millis() - startedWaiting <= 1500){
+    while(digitalRead(pin)==LOW && millis() - startedWaiting <= longPressLimit){
       delay(10);
       c++;
     }
@@ -333,18 +426,3 @@ int getAverage(int pin){
   }
   return a/10;
 }
-
-
-//Serial event
-// void serialEvent() {
-//   while (Serial.available()) {
-//     // get the new byte:
-//     char inChar = (char)Serial.read();
-//     // add it to the inputString:
-//     inputString += inChar;
-//     // if the incoming character is a newline, set a flag
-//     // so the main loop can do something about it:
-//     if (inChar == '\n') 
-//       stringComplete = true;
-//   }
-// }
