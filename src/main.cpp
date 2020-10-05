@@ -125,11 +125,9 @@ void loop() {
   }
 
   if(!joystickIsActivated && !activationBtnStatus){
-    //TODO set led-pin
     delay(20);
     return;
   }else{
-    //TODO set led-pin
   }
   if (isLongPressed(home_xy))
   {
@@ -215,7 +213,7 @@ void loop() {
     decimals=1;
   dtostrf(keepMoving_distance, 1, decimals, strBuff_distance);//first 1 is minimum length, second nr of decimals
 
-  unsigned long travelingDuration=Z_moveTime;
+  unsigned long travelDuration=Z_moveTime;
   
 
   while(keepMoving){
@@ -249,13 +247,13 @@ void loop() {
             delay(Z_moveTime);
           else
             delay(minTimeToReleaseBtnDelay);
-          
+          //Set keepmoving length and calculate duration:
           keepMoving_distance=1;
           dtostrf(keepMoving_distance, 1, 0, strBuff_distance);
-          travelingDuration=keepMoving_distance/(Z_Feedrate/60)*1000;
+          travelDuration=keepMoving_distance/(Z_Feedrate/60)*1000;
         }
         else
-          delay(travelingDuration);
+          delay(travelDuration);
       }
       else
         first = false; //if no contact - do not spam with G91...
@@ -276,7 +274,7 @@ void loop() {
     decimals=1;
   dtostrf(keepMoving_distance, 1, decimals, strBuff_distance);//first 1 is minimum length, second nr of decimals
 
-  travelingDuration=0; //Sets in loop...
+  travelDuration=0; //Sets in loop...
   keepMoving=true; 
 
   first = true;
@@ -321,9 +319,9 @@ void loop() {
       if(XYMove != (xMoved && yMoved) || first){
         XYMove = (xMoved && yMoved);
         if(XYMove) //Diagonal move = longer XY_distance... X=5, Y=5 => H=sqrt(2)*X (Pythagoras) H=sqrt(2*X²)=sqrt(2)*X
-          travelingDuration=(1.41421*keepMoving_distance)/(XY_Feedrate/60)*1000; 
+          travelDuration=(1.41421*keepMoving_distance)/(XY_Feedrate/60)*1000; 
         else
-          travelingDuration=keepMoving_distance/(XY_Feedrate/60)*1000; 
+          travelDuration=keepMoving_distance/(XY_Feedrate/60)*1000; 
       }
 
       if(waitForOkResponse()){
@@ -337,20 +335,20 @@ void loop() {
 
         if(first){
           first = false;
-          if(minTimeToReleaseBtnDelay<travelingDuration)
-            delay(travelingDuration);
+          if(minTimeToReleaseBtnDelay<travelDuration)
+            delay(travelDuration);
           else
             delay(minTimeToReleaseBtnDelay);
 
           keepMoving_distance=5;
           dtostrf(keepMoving_distance, 1, 0, strBuff_distance);
           if(XYMove) //Diagonal move = longer XY_distance
-            travelingDuration=(1.41421*keepMoving_distance)/(XY_Feedrate/60)*1000; 
+            travelDuration=(1.41421*keepMoving_distance)/(XY_Feedrate/60)*1000; 
           else
-            travelingDuration=keepMoving_distance/(XY_Feedrate/60)*1000; 
+            travelDuration=keepMoving_distance/(XY_Feedrate/60)*1000; 
         }
         else
-          delay(travelingDuration);
+          delay(travelDuration);
       }
       else
         first = false;
@@ -388,12 +386,18 @@ void setLedPin(int pin){
       break;
     case 1:
       digitalWrite(ledPin_1, LOW);
+      digitalWrite(ledPin_01, LOW);
       break;
     case 2:
       digitalWrite(ledPin_10, LOW);
+      digitalWrite(ledPin_1, LOW);
+      digitalWrite(ledPin_01, LOW);
       break;
     case 3:
       digitalWrite(ledPin_100, LOW);
+      digitalWrite(ledPin_10, LOW);
+      digitalWrite(ledPin_1, LOW);
+      digitalWrite(ledPin_01, LOW);
       break;
     default:
       // eg -1 leaves all leds off

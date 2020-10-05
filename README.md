@@ -1,6 +1,6 @@
 # MPCNC_Joystick
 A simple program for controlling my MPCNC by using a Joystick/buttons connected to a second Arduino.
-I had [this Joystick module](https://www.google.com/search?safe=active&channel=fs&sxsrf=ALeKk01vf7am_4LdB9LMmfPR0lXqPkCMQQ:1601278914214&source=univ&tbm=isch&q=joystick+shield+v1.a&client=ubuntu&sa=X&ved=2ahUKEwj2uPjmrIvsAhVHiIsKHRgPCRsQjJkEegQICRAB&biw=1920&bih=894) plus an Arduino Uno laying around, so I used the RX/TX on the UNO to send gcode to my MPCNC which runs the modified version of Marlin 1.1.5 (Arduino mega 2560 + Ramps 1.4) that you'll find in this repo.
+I had [this Joystick module](https://www.google.com/search?safe=active&channel=fs&sxsrf=ALeKk01vf7am_4LdB9LMmfPR0lXqPkCMQQ:1601278914214&source=univ&tbm=isch&q=joystick+shield+v1.a&client=ubuntu&sa=X&ved=2ahUKEwj2uPjmrIvsAhVHiIsKHRgPCRsQjJkEegQICRAB&biw=1920&bih=894) plus an Arduino Uno laying around, so I used the RX/TX on the UNO to send gcode to my MPCNC which runs the [modified version of Marlin 2.0.x](https://github.com/klalle/Marlin/tree/V1CNC_Ramps_Dual_Kalle)(Arduino mega 2560 + Ramps 1.4) - This joystick-arduino code should work with any Marlin version (tested on 1.1.5 as well), and probably on different HW setups as well (Rambo etc) as long as you connect it to a working serial connection.
 
 I thought this would be a piece of cake, but as always things didn't work as expected from the beguining...
 
@@ -14,8 +14,7 @@ I thought this would be a piece of cake, but as always things didn't work as exp
         * Session: /dev/ttyUSB0, Speed: 38400, Serial
         * Terminal/Implicit CR in every LF
         * Connection/Serial: /dev/ttyUSB0, 38400, 8, 1, none, XON/XOFF
-  * Changed Marlin code to use Serial 1 instead of Serial 0 and removed Zmin/Zmax endstops pin assignment to pins 18/19 (RX1/TX1)
-    * This makes sending commands over USB impossible since it's using Serial 0 (D0, D1)
+  * Changed Marlin code to use Serial 1 as well as Serial 0 and removed Zmin/Zmax endstops pin assignment to pins 18/19 (RX1/TX1)
     * Still nothing working when sending commands from the joystick UNO to Marlin...
     * Success in sending gcode "M117 Test" from USB-RS232 to RX1 on Marlin (2 days later... should've tried this earlier)
   * Why why why isn't Marlin working when sending gcode from UNO, but works when sending from USB-adapter?
@@ -25,21 +24,22 @@ I thought this would be a piece of cake, but as always things didn't work as exp
 
 #### Usage:
 * Upload sketch to UNO
-* Connect the joystick shield RX/TX (straight above the UNO RX/TX) to the Ramps Zmin/Zmax [D18/D19](https://m.media-amazon.com/images/S/aplus-media/sc/4dedd672-6684-42a1-88e2-8fe3860f3563.__CR0,0,970,600_PT0_SX970_V1___.jpg) (at least the UNO TX and the Ramps D19) and the 5V/GND to Ramps 5V/GND (just underneath the zmin/zmax)
+* Connect the joystick shield RX/TX (straight above the UNO RX/TX) to the Ramps Zmin/Zmax [D18/D19](https://m.media-amazon.com/images/S/aplus-media/sc/4dedd672-6684-42a1-88e2-8fe3860f3563.__CR0,0,970,600_PT0_SX970_V1___.jpg) and the 5V/GND to Ramps 5V/GND (just underneath the zmin/zmax)
 
 #### Here's a list of what I have programed it to do: 
-* Joystick move = X and Y-moves
-* Joystick btn (click down) changes move distances (0.1, 1, 10, 100mm)
-  * Long press => changes between normal mode (up down btns = Z) and XY-only-mode (makes buttons up/down controll Y instead of Z)
-* Buttons:
-  * Upp (A)  => Z+ (or Y+ if in XY-mode)
-  * Down (C) => Z- (or Y- if in XY-mode)
-  * Left (D) => X-
-  * Right (B) => X+
-  * Left + Right (keep down 500ms+) => Reset coordinates to this location (X0 Y0 Z0)
-  * Button E => Home z (make sure you have touch-plate!!!)
-  * Button F => Home X and Y (endstops)
+**"longclick"** defenition: keep btn pressed +1.5s
 
-If you are using my modified version of Marlin, you'll see that the LCD-screen will show you what mode you are in and how far you'll travel on each command. 
+* Joystick btn (longclick) => turns the joystick on/off (starts listening for commands) - overridden if btn connected to pin D9
+* Joystick move => X and Y-moves 
+  * first move has a 300ms delay to enable single move, if kept activated a continuos move is started till released. 
+* Buttons:
+  * Upp (A)  => Z+
+  * Down (C) => Z-
+  * Left (D) (longclick) => Home XY
+  * Right (B) (longclick) => Set home here (resets Marlin to X0 Y0 Z0)
+  * E (longclick) => Home z (make sure you have touch-plate connected and configured on some available pin)
+  * F => Changes single move distance (0.1, 1, 10, 100mm/20mm) (changes the led's)
+
+If you are using my [modified version of Marlin](https://github.com/klalle/Marlin/tree/V1CNC_Ramps_Dual_Kalle), you'll see that the LCD-screen will show you what mode you are in and how far you'll travel on each command. 
 
 /Kalle
