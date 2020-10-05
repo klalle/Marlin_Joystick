@@ -205,7 +205,7 @@ void loop() {
   bool first = true;
   bool hasMoved=false;
 
-  unsigned long Z_moveTime = Z_distance/(Z_Feedrate/60)*1000;
+  unsigned long Z_moveTime = Z_distance/(Z_Feedrate/60.0)*1000;
 
   double keepMoving_distance=Z_distance;
   int decimals = 0;
@@ -248,9 +248,9 @@ void loop() {
           else
             delay(minTimeToReleaseBtnDelay);
           //Set keepmoving length and calculate duration:
-          keepMoving_distance=1;
+          keepMoving_distance=1.0;
           dtostrf(keepMoving_distance, 1, 0, strBuff_distance);
-          travelDuration=keepMoving_distance/(Z_Feedrate/60)*1000;
+          travelDuration=keepMoving_distance/(Z_Feedrate/60.0)*1000;
         }
         else
           delay(travelDuration);
@@ -319,9 +319,9 @@ void loop() {
       if(XYMove != (xMoved && yMoved) || first){
         XYMove = (xMoved && yMoved);
         if(XYMove) //Diagonal move = longer XY_distance... X=5, Y=5 => H=sqrt(2)*X (Pythagoras) H=sqrt(2*X²)=sqrt(2)*X
-          travelDuration=(1.41421*keepMoving_distance)/(XY_Feedrate/60)*1000; 
+          travelDuration=(1.41421*keepMoving_distance)/(XY_Feedrate/60.0)*1000; 
         else
-          travelDuration=keepMoving_distance/(XY_Feedrate/60)*1000; 
+          travelDuration=keepMoving_distance/(XY_Feedrate/60.0)*1000; 
       }
 
       if(waitForOkResponse()){
@@ -343,9 +343,9 @@ void loop() {
           keepMoving_distance=5;
           dtostrf(keepMoving_distance, 1, 0, strBuff_distance);
           if(XYMove) //Diagonal move = longer XY_distance
-            travelDuration=(1.41421*keepMoving_distance)/(XY_Feedrate/60)*1000; 
+            travelDuration=(1.41421*keepMoving_distance)/(XY_Feedrate/60.0)*1000; 
           else
-            travelDuration=keepMoving_distance/(XY_Feedrate/60)*1000; 
+            travelDuration=keepMoving_distance/(XY_Feedrate/60.0)*1000; 
         }
         else
           delay(travelDuration);
