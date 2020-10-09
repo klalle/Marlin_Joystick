@@ -63,7 +63,7 @@ unsigned long minTimeToReleaseBtnDelay = 300;
 bool firstXMoveLeft=true;
 bool firstXMoveRight=true;
 
-bool waitForOkResponse();
+bool waitForResponseMessage(String responseMessage="ok");
 bool isPressed(int pin);
 bool isLongPressed(int pin);
 int getAverage(int pin);
@@ -139,10 +139,16 @@ void loop() {
 
   if (isLongPressed(home_z))
   {
-    Serial.println("G28 Z");
-    Serial.println("M117 Homing Z...");
+    Serial.println("M119");
+    if(waitForResponseMessage("z_min: open")){
+      Serial.println("G28 Z");
+      Serial.println("M117 Homing Z...");
+      delay(3000);
+    }
+    else
+      Serial.println("M117 No Z-probe found");
+    
     updateSpeedAndLabel=true;
-    delay(3000);
   }
 
   if (isLongPressed(setHomeHere))
@@ -161,6 +167,8 @@ void loop() {
     delay(50);
   }
 
+  char strBuff_distance[10];
+  int decimals = 0;
 
   if(updateSpeedAndLabel){
 
@@ -185,10 +193,13 @@ void loop() {
     if(speedToggle<3)
       Z_distance=XY_distance;
 
+    if(XY_distance<1)
+      decimals=1;
+
     Serial.print("M117 Joystick XY:");
-    Serial.print(XY_distance);
+    Serial.print(XY_distance, decimals);
     Serial.print(" Z:");
-    Serial.println(Z_distance);
+    Serial.println(Z_distance, decimals);
    
     //wait till btns released...
     while(isPressed(home_xy)){delay(50);} 
@@ -197,7 +208,6 @@ void loop() {
     while(isPressed(joystickBtn)){delay(50);}
   }
 
-  char strBuff_distance[10];
 
   //Keep moving in Z until jystick is released, start with long delay to enable single XY_distance moove
   //After that accelerate upp to speed.
@@ -208,7 +218,6 @@ void loop() {
   unsigned long Z_moveTime = Z_distance/(Z_Feedrate/60.0)*1000;
 
   double keepMoving_distance=Z_distance;
-  int decimals = 0;
   if(XY_distance<1)
     decimals=1;
   dtostrf(keepMoving_distance, 1, decimals, strBuff_distance);//first 1 is minimum length, second nr of decimals
@@ -236,7 +245,7 @@ void loop() {
         hasMoved=true;
       }
 
-      if(waitForOkResponse()){
+      if(waitForResponseMessage()){
         Serial.print("G1");
         Serial.print(Z_command);
         Serial.print(" F");
@@ -324,7 +333,7 @@ void loop() {
           travelDuration=keepMoving_distance/(XY_Feedrate/60.0)*1000; 
       }
 
-      if(waitForOkResponse()){
+      if(waitForResponseMessage()){
         Serial.print("G1");
         if(xMoved)
           Serial.print(X_command);
@@ -361,18 +370,19 @@ void loop() {
   }
 }
 
-bool waitForOkResponse(){
+bool waitForResponseMessage(String responseMessage="ok"){
   unsigned long startedWaiting = millis();
   String receivedStr = "";
-  bool OkFound=false;
+  bool messageFound=false;
   while (Serial.available() && millis() - startedWaiting <= minTimeToReleaseBtnDelay) {
     char inChar = (char)Serial.read();
     receivedStr += inChar;
-    if(receivedStr.indexOf("ok")>=0)
-      OkFound=true;
+    if(receivedStr.indexOf(responseMessage)>=0)
+      messageFound=true;
   }
-  return OkFound;
+  return messageFound;
 }
+
 
 void setLedPin(int pin){
   digitalWrite(ledPin_01, HIGH); //turn all off
