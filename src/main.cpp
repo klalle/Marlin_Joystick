@@ -65,7 +65,7 @@ bool firstXMoveRight=true;
 
 bool waitForResponseMessage(String responseMessage="ok");
 bool isPressed(int pin);
-bool isLongPressed(int pin);
+bool isLongPressed(int pin, int multiplyLimit=1);
 int getAverage(int pin);
 void setLedPin(int pin);
 
@@ -137,18 +137,22 @@ void loop() {
     delay(3000);
   }
 
-  if (isLongPressed(home_z))
+  if (isPressed(home_z)) //make sure you know what you are doing...
   {
-    Serial.println("M119");
-    if(waitForResponseMessage("z_min: open")){
-      Serial.println("G28 Z");
-      Serial.println("M117 Homing Z...");
-      delay(3000);
+    Serial.println("M117 Keep pressing (Z)");
+    if(isLongPressed(home_z,5)){
+      Serial.println("M119");
+      //if(waitForResponseMessage("z_min: open")){
+        Serial.println("G28 Z");
+        Serial.println("M117 Homing Z...");
+        delay(5000);
+      // }
+      // else{
+      //   Serial.println("M117 No Z-probe found");
+      //   delay(5000);
+      // }
+      updateSpeedAndLabel=true;
     }
-    else
-      Serial.println("M117 No Z-probe found");
-    
-    updateSpeedAndLabel=true;
   }
 
   if (isLongPressed(setHomeHere))
@@ -419,10 +423,10 @@ bool isPressed(int pin){
   return digitalRead(pin)==LOW;
 }
 
-bool isLongPressed(int pin){
+bool isLongPressed(int pin, int multiplyLimit=1){
   int c=0;
     unsigned long startedWaiting = millis();
-    while(digitalRead(pin)==LOW && millis() - startedWaiting <= longPressLimit){
+    while(digitalRead(pin)==LOW && millis() - startedWaiting <= longPressLimit*multiplyLimit){
       delay(10);
       c++;
     }
