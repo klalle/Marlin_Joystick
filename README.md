@@ -19,7 +19,7 @@ The code doesn't just spam Marlin with gcode commands (as I have seen other impl
   * Down (C) => Z-
   * Left (D) (longclick) => Home XY
   * Right (B) (longclick) => Set home here (resets Marlin to X0 Y0 Z0)
-  * E (longclick) => Home z (make sure you have touch-plate connected and configured on some available pin)
+  * E (extra-longclick) => Home z (make sure you have touch-plate connected and configured on some available pin)
   * F => Changes single move distance (0.1, 1, 10, 100mm/20mm) (changes the led's)
 
 
