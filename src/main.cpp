@@ -46,8 +46,10 @@ char Z_command[10]  = "\0";
 double XY_distance = 1.0;
 double Z_distance = 1.0;
 
-int XY_Feedrate = 4000;
-int Z_Feedrate = 300;
+int XY_Feedrate = 4000; //mm/min
+int Z_Feedrate = 300;   //mm/min
+int XY_Acc=180; //mm/s²
+int Z_Acc=80;   //mm/s²
 
 int speedToggle=1; // set 0.1mm,1, 10, 100
 bool activationBtnStatus = false;
@@ -266,7 +268,7 @@ void loop() {
           travelDuration=keepMoving_distance/(Z_Feedrate/60.0)*1000;
         }
         else
-          delay(travelDuration);
+          delay(travelDuration); //no need for calculating acceleration extra delay since fr is very slow...
       }
       else
         first = false; //if no contact - do not spam with G91...
@@ -287,12 +289,14 @@ void loop() {
     decimals=1;
   dtostrf(keepMoving_distance, 1, decimals, strBuff_distance);//first 1 is minimum length, second nr of decimals
 
-  travelDuration=0; //Sets in loop...
+  int totalTravelDistance=0;
+  unsigned long timeWhenVaccIsVfr=(XY_Feedrate/(double)60)/XY_Acc*1000; //370ms (fr=4000mm/min)
+  unsigned long totalTravelTime=0;
+
+  travelDuration=keepMoving_distance/(XY_Feedrate/60.0)*1000; 
   keepMoving=true; 
 
   first = true;
-  bool XYMove=false;
-
 
   while(keepMoving){
     //X
@@ -329,14 +333,6 @@ void loop() {
         hasMoved=true;
       }
 
-      if(XYMove != (xMoved && yMoved) || first){
-        XYMove = (xMoved && yMoved);
-        if(XYMove) //Diagonal move = longer XY_distance... X=5, Y=5 => H=sqrt(2)*X (Pythagoras) H=sqrt(2*X²)=sqrt(2)*X
-          travelDuration=(1.41421*keepMoving_distance)/(XY_Feedrate/60.0)*1000; 
-        else
-          travelDuration=keepMoving_distance/(XY_Feedrate/60.0)*1000; 
-      }
-
       if(waitForResponseMessage()){
         Serial.print("G1");
         if(xMoved)
@@ -355,13 +351,21 @@ void loop() {
 
           keepMoving_distance=5;
           dtostrf(keepMoving_distance, 1, 0, strBuff_distance);
-          if(XYMove) //Diagonal move = longer XY_distance
-            travelDuration=(1.41421*keepMoving_distance)/(XY_Feedrate/60.0)*1000; 
-          else
-            travelDuration=keepMoving_distance/(XY_Feedrate/60.0)*1000; 
+          travelDuration=keepMoving_distance/(XY_Feedrate/60.0)*1000; 
         }
-        else
+        else{
+          totalTravelDistance+=keepMoving_distance;
+
+          if(totalTravelTime<timeWhenVaccIsVfr){ //while accelerating
+            long speedAtEndOfAcc = sqrt(2*XY_Acc*totalTravelDistance); //mm/s
+            int traveltimeToEnd = speedAtEndOfAcc/(double)XY_Acc*1000; //ms
+            travelDuration = traveltimeToEnd - totalTravelTime; 
+          }else
+            travelDuration=keepMoving_distance/(XY_Feedrate/60.0)*1000; 
+            
           delay(travelDuration);
+          totalTravelTime += travelDuration;          
+        }
       }
       else
         first = false;
