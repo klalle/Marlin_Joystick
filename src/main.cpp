@@ -47,7 +47,7 @@ double XY_distance = 1.0;
 double Z_distance = 1.0;
 
 int XY_Feedrate = 4000; //mm/min
-int Z_Feedrate = 300;   //mm/min
+int Z_Feedrate = 400;   //mm/min
 int XY_Acc=180; //mm/s²
 int Z_Acc=80;   //mm/s²
 
@@ -221,6 +221,10 @@ void loop() {
   bool first = true;
   bool hasMoved=false;
 
+  int totalTravelDistance=0;
+  unsigned long timeWhenVaccIsVfr=(Z_Feedrate/(double)60)/Z_Acc*1000; //83ms (fr=400mm/min acc=80)
+  unsigned long totalTravelTime=0;
+
   unsigned long Z_moveTime = Z_distance/(Z_Feedrate/60.0)*1000;
 
   double keepMoving_distance=Z_distance;
@@ -267,8 +271,20 @@ void loop() {
           dtostrf(keepMoving_distance, 1, 0, strBuff_distance);
           travelDuration=keepMoving_distance/(Z_Feedrate/60.0)*1000;
         }
-        else
-          delay(travelDuration); //no need for calculating acceleration extra delay since fr is very slow...
+        else{
+          totalTravelDistance+=keepMoving_distance;
+
+          if(totalTravelTime<timeWhenVaccIsVfr){ //while accelerating (overshutes some, i know...)
+            long speedAtEndOfAcc = sqrt(2*Z_Acc*totalTravelDistance); //mm/s
+            int traveltimeToEnd = speedAtEndOfAcc/(double)Z_Acc*1000; //ms
+            travelDuration = traveltimeToEnd - totalTravelTime; 
+          }
+          else
+            travelDuration=keepMoving_distance/(Z_Feedrate/60.0)*1000;
+
+          delay(travelDuration);
+          totalTravelTime += travelDuration;      
+        }
       }
       else
         first = false; //if no contact - do not spam with G91...
@@ -289,9 +305,9 @@ void loop() {
     decimals=1;
   dtostrf(keepMoving_distance, 1, decimals, strBuff_distance);//first 1 is minimum length, second nr of decimals
 
-  int totalTravelDistance=0;
-  unsigned long timeWhenVaccIsVfr=(XY_Feedrate/(double)60)/XY_Acc*1000; //370ms (fr=4000mm/min)
-  unsigned long totalTravelTime=0;
+  totalTravelDistance=0;
+  timeWhenVaccIsVfr=(XY_Feedrate/(double)60)/XY_Acc*1000; //370ms (fr=4000mm/min)
+  totalTravelTime=0;
 
   travelDuration=keepMoving_distance/(XY_Feedrate/60.0)*1000; 
   keepMoving=true; 
