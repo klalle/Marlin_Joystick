@@ -329,14 +329,6 @@ void loop() {
         hasMoved=true;
       }
 
-      if(XYMove != (xMoved && yMoved) || first){
-        XYMove = (xMoved && yMoved);
-        if(XYMove) //Diagonal move = longer XY_distance... X=5, Y=5 => H=sqrt(2)*X (Pythagoras) H=sqrt(2*X²)=sqrt(2)*X
-          travelDuration=(1.41421*keepMoving_distance)/(XY_Feedrate/60.0)*1000; 
-        else
-          travelDuration=keepMoving_distance/(XY_Feedrate/60.0)*1000; 
-      }
-
       if(waitForResponseMessage()){
         Serial.print("G1");
         if(xMoved)
