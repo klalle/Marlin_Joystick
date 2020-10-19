@@ -1,7 +1,7 @@
 # MPCNC_Joystick
 A simple program for controlling my MPCNC by using a Joystick/buttons connected to a second Arduino.
 I had [this Joystick module](https://www.google.com/search?safe=active&channel=fs&sxsrf=ALeKk01vf7am_4LdB9LMmfPR0lXqPkCMQQ:1601278914214&source=univ&tbm=isch&q=joystick+shield+v1.a&client=ubuntu&sa=X&ved=2ahUKEwj2uPjmrIvsAhVHiIsKHRgPCRsQjJkEegQICRAB&biw=1920&bih=894) plus an Arduino Uno laying around, so I used the RX/TX on the UNO to send gcode to my MPCNC which runs the [modified version of Marlin 2.0.x](https://github.com/klalle/Marlin/tree/V1CNC_Ramps_Dual_Kalle)(Arduino mega 2560 + Ramps 1.4) - This joystick-arduino code should work with any Marlin version (tested on 1.1.5 as well), and probably on different HW setups as well (Rambo etc) as long as you connect it to a working serial connection.
-The code doesn't just spam Marlin with gcode commands (as I have seen other implementations do...), before each new command it waits for an "ok" from Marlin.
+The code doesn't just spam Marlin with gcode commands (as I have seen other implementations do...), before each new command it waits for an "ok" from Marlin and tries to calculate the delay to as long as the move should take (not considering acceleration...).
 
 
 #### Usage:
@@ -19,7 +19,7 @@ The code doesn't just spam Marlin with gcode commands (as I have seen other impl
   * Down (C) => Z-
   * Left (D) (longclick) => Home XY
   * Right (B) (longclick) => Set home here (resets Marlin to X0 Y0 Z0)
-  * E (longclick) => Home z (make sure you have touch-plate connected and configured on some available pin)
+  * E (extra-longclick) => Home z (make sure you have touch-plate connected and configured on some available pin)
   * F => Changes single move distance (0.1, 1, 10, 100mm/20mm) (changes the led's)
 
 
